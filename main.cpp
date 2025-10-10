@@ -14,13 +14,15 @@ string change_extension(const string& filename, const string& new_ext) {
 }
 
 int main(int argc, char* argv[]) {
-    // Valida os argumentos da linha de comando.
-    if (argc!= 2) {
-        cerr << "Uso:./compilador arquivo.asm" << endl;
-        return 1;
-    }
+    string input_filename;
 
-    string input_filename = argv[1];
+    // Valida os argumentos da linha de comando.
+    if (argc == 2) {
+        input_filename = argv[1];
+    } else {
+        cout << "Nenhum arquivo informado. Usando example.asm para debug." << endl;
+        input_filename = "example.asm";
+    }
     string pre_filename = change_extension(input_filename, ".pre");
     string o1_filename = change_extension(input_filename, ".o1");
     string o2_filename = change_extension(input_filename, ".o2");

@@ -2,6 +2,7 @@
 // #include "Assembler.hpp"
 #include <iostream>
 #include <string>
+#include "Assembler.hpp"
 
 using namespace std;
 
@@ -34,10 +35,10 @@ int main(int argc, char* argv[]) {
         preprocessor.process(input_filename, pre_filename);
         cout << "Pre-processamento concluido. Saida em: " << pre_filename << endl;
 
-        // // Executa a Passagem 1: Montagem.
-        // cout << "Iniciando Passagem 1: Montagem..." << endl;
-        // Assembler assembler;
-        // assembler.assemble(pre_filename, o1_filename, o2_filename);
+        // Executa a Passagem 1: Montagem.
+        cout << "Iniciando Passagem 1: Montagem..." << endl;
+        Assembler assembler;
+        assembler.assemble(pre_filename);
         // cout << "Montagem concluida. Saidas em: " << o1_filename << " e " << o2_filename << endl;
 
     } catch (const exception& e) {

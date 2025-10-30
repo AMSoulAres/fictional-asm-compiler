@@ -58,22 +58,22 @@ space_two:     space 2      ; lowercase directive to test case-insensitivity
 CONST_OK:      CONST 10
 
 ; ---------- Instruction parameter count errors ----------
-; Assuming MOV expects 2 operands, ADD/SUB 2, NOP 0, JMP 1
+; Assuming MOV expects 2 parameters, ADD/SUB 2, NOP 0, JMP 1
 MOV_WRONG:     MOV A         ; wrong number of parameters - semantic
 ADD_TOO_MANY:  ADD A, B, C   ; wrong number of parameters - semantic
-NOP_HAS_ARG:   NOP 1         ; NOP should not accept operands - semantic
+NOP_HAS_ARG:   NOP 1         ; NOP should not accept parameters - semantic
 
 ; ---------- Nonexistent instruction ----------
 FOOBAR:        FOO X, Y      ; instruction doesn't exist - semantic
 
 ; ---------- Lexical tricky tokens ----------
 ; Comma-handling and fused tokens
-MOV C,D,E      ; too many operands and comma fused tokens (lexer should split commas)
+MOV C,D,E      ; too many parameters and comma fused tokens (lexer should split commas)
 
 ; Invalid numeric literal
 NUM_BAD:       CONST 12A    ; lexical/semantic – invalid number format
 
-; Operand plus expressions: valid and invalid
+; Parameter plus expressions: valid and invalid
 LEGAL_PLUS:    LOAD LABEL2+3
 ILLEGAL_PLUS:  LOAD 2+X      ; right side not numeric
 

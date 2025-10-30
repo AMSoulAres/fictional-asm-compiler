@@ -13,7 +13,6 @@ public:
     vector<Token> tokenize(const string& source, int line);
 
 private:
-    // string cleanLine(const string& line);
     bool isValidLabel(const string& label);
     vector<string> optab = {
         "ADD", "SUB", "MULT", "DIV", "JMP", "JMPN", "JMPP", "JMPZ",

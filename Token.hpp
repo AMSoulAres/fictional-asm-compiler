@@ -10,7 +10,7 @@ enum class TokenType {
     INSTRUCTION,
     LABEL,
     DIRECTIVE,
-    OPERAND,
+    PARAMETER,
     NUMBER,
     COMMA,
     UNKNOWN

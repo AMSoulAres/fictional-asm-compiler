@@ -10,18 +10,18 @@
 
 using namespace std;
 
-// Opcodes, tamanhos e número de operandos.
+// Opcodes, tamanhos e número de parameteros.
 struct OpInfo {
     int opcode;
     int size;           // Tamanho em words de memória.
-    int num_operands;
+    int numParameters;
 };
 
 // Item da Tabela de Símbolos.
 struct SymbolItem {
     int address;
-    bool is_defined = false; 
-    list<int> pending_list; // Lista de endereços no código objeto que precisam ser corrigidos.
+    bool isDefined = false; 
+    int pendingListHead = -1; // Lista de endereços no código objeto que precisam ser corrigidos.
 };
 
 class Assembler {
@@ -35,8 +35,8 @@ private:
     // Métodos privados que implementam as fases da montagem.
     void initialize_optab();
     void first_pass(const string& input_filename);
-    // void generate_o1_file(const string& filename);
-    // void backpatch();
+    void generate_o1_file(const string& filename);
+    void resolvePendingReferences();
     // void generate_o2_file(const string& filename);
     
     LexicalAnalyzer lexicalAnalyzer;
@@ -47,10 +47,8 @@ private:
     // Tabela de Símbolos
     unordered_map<string, SymbolItem> symtab;
 
-    // Vetor para armazenar o código objeto gerado.
-    vector<int> object_code;
+    vector<int> codigoObjeto;
 
-    // Vetor para armazenar erros encontrados durante a montagem.
     vector<pair<int, string>> errors;
 };
 

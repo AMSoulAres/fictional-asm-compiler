@@ -12,7 +12,21 @@ vector<Token> LexicalAnalyzer::tokenize(const string &source, int line)
     // Replace commas with spaces so stringstream splits on commas as separators
     string sanitized = source;
     replace(sanitized.begin(), sanitized.end(), ',', ' ');
-    stringstream stream(sanitized);
+    // Remove spaces around '+' so expressions like "N2 + 3" become "N2+3"
+    string compact;
+    for (size_t i = 0; i < sanitized.size(); ++i)
+    {
+        char c = sanitized[i];
+        if (isspace(static_cast<unsigned char>(c)))
+        {
+            bool nextIsPlus = (i + 1 < sanitized.size() && sanitized[i + 1] == '+');
+            bool prevIsPlus = (i > 0 && sanitized[i - 1] == '+');
+            if (nextIsPlus || prevIsPlus)
+                continue; // skip spaces adjacent to plus
+        }
+        compact.push_back(c);
+    }
+    stringstream stream(compact);
     string word;
 
     while (stream >> word)
@@ -56,11 +70,11 @@ vector<Token> LexicalAnalyzer::tokenize(const string &source, int line)
             }
             else
             {
-                // Token desconhecido, assume como OPERAND (pode ser um rótulo ou variável)
-                token.type = TokenType::OPERAND;
+                // Token desconhecido, assume como PARAMETER (pode ser um rótulo ou variável)
+                token.type = TokenType::PARAMETER;
                 token.value = word;
 
-                // Valida operandos nos formatos: LABEL, LABEL+NUMBER, NUMBER+NUMBER, etc.
+                // Valida parameteros nos formatos: LABEL, LABEL+NUMBER, NUMBER+NUMBER, etc.
                 size_t plusPos = word.find('+');
                 if (plusPos != string::npos)
                 {
@@ -70,14 +84,14 @@ vector<Token> LexicalAnalyzer::tokenize(const string &source, int line)
                     bool rightValid = !right.empty() && all_of(right.begin(), right.end(), ::isdigit);
                     if (!leftValid || !rightValid)
                     {
-                        throw LexicalException("Operando ou rótulo inválido: " + word, line);
+                        throw LexicalException("Parametero ou rótulo inválido: " + word, line);
                     }
                 }
                 else
                 {
                     if (!isValidLabel(word))
                     {
-                        throw LexicalException("Operando ou rótulo inválido: " + word, line);
+                        throw LexicalException("Parametero ou rótulo inválido: " + word, line);
                     }
                 }
             }

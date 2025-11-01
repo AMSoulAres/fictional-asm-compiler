@@ -11,6 +11,8 @@
 *.gch
 *.pch
 *.pre
+*.o1
+*.o2
 
 # Linker files
 *.ilk

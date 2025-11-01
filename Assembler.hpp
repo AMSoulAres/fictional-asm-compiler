@@ -1,7 +1,6 @@
 #ifndef ASSEMBLER_HPP
 #define ASSEMBLER_HPP
 
-// #include "Lexer.hpp"
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -10,7 +9,6 @@
 
 using namespace std;
 
-// Opcodes, tamanhos e número de parameteros.
 struct OpInfo {
     int opcode;
     int size;           // Tamanho em words de memória.
@@ -21,23 +19,18 @@ struct OpInfo {
 struct SymbolItem {
     int address;
     bool isDefined = false; 
-    int pendingListHead = -1; // Lista de endereços no código objeto que precisam ser corrigidos.
+    int pendingListHead = -1;
 };
 
 class Assembler {
 public:
-    // Método principal que orquestra a montagem.
-    void assemble(const string& input_filename
-        //  const string& o1_filename, const string& o2_filename
-        );
+    void assemble(const string& input_filename, const string& o1_filename, const string& o2_filename);
 
 private:
-    // Métodos privados que implementam as fases da montagem.
     void initialize_optab();
-    void first_pass(const string& input_filename);
+    void pass(const string& input_filename);
     void generate_o1_file(const string& filename);
-    void resolvePendingReferences();
-    // void generate_o2_file(const string& filename);
+    void generate_o2_file(const string& filename);
     
     LexicalAnalyzer lexicalAnalyzer;
 
@@ -48,6 +41,11 @@ private:
     unordered_map<string, SymbolItem> symtab;
 
     vector<int> codigoObjeto;
+    // (para gerar .o1)
+    vector<int> codigoObjetoO1;
+
+    // índice no codigoObjeto -> offset pendente
+    std::unordered_map<int,int> pendingOffsets;
 
     vector<pair<int, string>> errors;
 };

@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
         // Executa a Passagem 1: Montagem.
         cout << "Iniciando Passagem 1: Montagem..." << endl;
         Assembler assembler;
-        assembler.assemble(pre_filename);
+        assembler.assemble(pre_filename, o1_filename, o2_filename);
         // cout << "Montagem concluida. Saidas em: " << o1_filename << " e " << o2_filename << endl;
 
     } catch (const exception& e) {

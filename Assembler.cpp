@@ -3,15 +3,11 @@
 #include <iostream>
 #include <algorithm>
 
-void Assembler::assemble(const string &input_filename
-                         //  const string &o1_filename,
-                         //  const string &o2_filename
-)
+void Assembler::assemble(const string &input_filename, const string &o1_filename, const string &o2_filename)
 {
     initialize_optab();
-    first_pass(input_filename);
+    pass(input_filename);
 
-    // Print collected errors (lexical/syntactic/semantic) so they're visible to the user.
     if (!errors.empty())
     {
         cout << "Erros encontrados durante a montagem:\n";
@@ -20,9 +16,8 @@ void Assembler::assemble(const string &input_filename
             cout << "Linha " << err.first << ": " << err.second << endl;
         }
     }
-    // generate_o1_file(o1_filename);
-    // backpatch();
-    // generate_o2_file(o2_filename);
+    generate_o1_file(o1_filename);
+    generate_o2_file(o2_filename);
 }
 
 void Assembler::initialize_optab()
@@ -43,7 +38,7 @@ void Assembler::initialize_optab()
     optab["STOP"] = {14, 1, 0};
 }
 
-void Assembler::first_pass(const string &input_filename)
+void Assembler::pass(const string &input_filename)
 {
     ifstream input_file(input_filename);
     if (!input_file.is_open())
@@ -52,7 +47,7 @@ void Assembler::first_pass(const string &input_filename)
     }
 
     string line;
-    int programCounter = 0;
+    int locCounter = 0;
     int lineNumber = 0;
     string pendingDefinition = "";
 
@@ -67,7 +62,6 @@ void Assembler::first_pass(const string &input_filename)
         try
         {
             vector<Token> tokens;
-            // size_t pos = 0;
             if (line.empty() || all_of(line.begin(), line.end(), [](char c)
                                        { return isspace(static_cast<unsigned char>(c)); }) ||
                 line[0] == ';')
@@ -94,27 +88,51 @@ void Assembler::first_pass(const string &input_filename)
 
             if (!currentLabel.empty())
             {
-                // If the current line contains only a label (no instruction/operands),
-                // set it as pending and defer the actual definition until we have
-                // an instruction on the same or a following line.
+                // Se a linha não tem instrução (só rótulo),
+                // seta como pendente e espera a definição real
+                // de uma instrução na mesma linha ou em uma linha seguinte
+                // Caso: ROTULO:
+                //         ADD N1
                 if (tokenIndex >= tokens.size())
                 {
                     pendingDefinition = currentLabel;
                     continue;
                 }
 
-                // Otherwise, define the label now (instruction follows on the same line).
+                // Se não, define o rótulo agora (instrução segue na mesma linha)
+                // Caso: ROTULO: ADD N1
                 if (symtab.count(currentLabel) && symtab[currentLabel].isDefined)
                 {
                     throw runtime_error("Rotulo '" + currentLabel + "' declarado duas vezes.");
                 }
 
-                // Adiciona ou atualiza o rótulo na Tabela de Símbolos (SYMTAB).
-                symtab[currentLabel].address = programCounter;
+                // Adiciona ou atualiza o rótulo na Tabela de Símbolos (SYMTAB)
+                symtab[currentLabel].address = locCounter;
                 symtab[currentLabel].isDefined = true;
 
-                // Se havia uma definição pendente usada aqui, limpamos para
-                // não considerar o mesmo rótulo novamente nas próximas linhas.
+                // Resolve as pendências do rótulo na sua declaração
+                if (symtab[currentLabel].pendingListHead != -1) {
+                    int cur = symtab[currentLabel].pendingListHead;
+                    while (cur != -1) {
+                        if (cur < 0 || static_cast<size_t>(cur) >= codigoObjeto.size()) {
+                            throw runtime_error("Lista de pendencias corrompida ao resolver rotulo: " + currentLabel);
+                        }
+                        int nextLoc = codigoObjeto[cur];
+                        int offset = 0;
+                        auto itOff = pendingOffsets.find(cur);
+                        if (itOff != pendingOffsets.end()) {
+                            offset = itOff->second;
+                            pendingOffsets.erase(itOff);
+                        }
+                        // escreve o endereço final (endereço do símbolo + offset)
+                        codigoObjeto[cur] = symtab[currentLabel].address + offset;
+                        cur = nextLoc;
+                    }
+                    // limpa a cabeça da lista de pendências
+                    symtab[currentLabel].pendingListHead = -1;
+                }
+                // Se existia uma definição pendente usada aqui, dá um clear para
+                // não considerar o mesmo rótulo de novo nas próximas linhas
                 if (pendingDefinition == currentLabel)
                 {
                     pendingDefinition.clear();
@@ -132,12 +150,7 @@ void Assembler::first_pass(const string &input_filename)
                 size_t i = tokenIndex + 1;
                 while (i < tokens.size()) {
                     std::string op = tokens[i].value;
-                    if (i + 2 < tokens.size() && tokens[i+1].value == "+") {
-                        op += "+" + tokens[i+2].value;
-                        i += 3;
-                    } else {
-                        i += 1;
-                    }
+                    i += 1;
                     operands.push_back(op);
                 }
 
@@ -145,7 +158,9 @@ void Assembler::first_pass(const string &input_filename)
                     throw runtime_error("Instrução '" + mainToken.value + "' com número de parâmetros errado.");
                 }
 
+                // grava opcode em ambas as representações (O1 mantém pendências)
                 codigoObjeto.push_back(opInfo.opcode);
+                codigoObjetoO1.push_back(opInfo.opcode);
 
                 for (size_t pi = 0; pi < operands.size(); ++pi) {
                     std::string param = operands[pi];
@@ -163,26 +178,43 @@ void Assembler::first_pass(const string &input_filename)
                         offset = stoi(offStr);
                     }
 
-                    // If immediate number (no base label)
+                    // Suporte pra imediatos (apesar de não serem permitidos na especificação)
                     if (plusPos == std::string::npos && !base.empty() && all_of(base.begin(), base.end(), ::isdigit)) {
-                        codigoObjeto.push_back(stoi(base));
+                        int imm = stoi(base);
+                        codigoObjeto.push_back(imm);
+                        codigoObjetoO1.push_back(imm);
                         continue;
                     }
 
                     if (symtab.count(base) && symtab[base].isDefined) {
-                        codigoObjeto.push_back(symtab[base].address + offset);
+                        int resolvedVal = symtab[base].address + offset;
+                        codigoObjeto.push_back(resolvedVal);
+                        codigoObjetoO1.push_back(resolvedVal);
                     } else {
-                        int previous_head = -1;
-                        if (symtab.count(base)) previous_head = symtab[base].pendingListHead;
-                        int loc = programCounter + 1 + static_cast<int>(pi);
-                        // Encode: ((previous_head + 1) << 16) | (offset & 0xFFFF)
-                        int encoded = ((previous_head + 1) << 16) | (offset & 0xFFFF);
-                        codigoObjeto.push_back(encoded);
+                        int previousHead = -1;
+                        if (symtab.count(base)){
+                            previousHead = symtab[base].pendingListHead;
+                        } else {
+                            // Inicializa entrada na SYMTAB se não existir
+                            symtab[base];
+                        }
+
+                        // posição atual do código
+                        int loc = static_cast<int>(codigoObjeto.size());
+
+                        // placeholder no código objeto (guarda o head anterior como 'next')
+                        codigoObjeto.push_back(previousHead);
+                        // grava a mesma placeholder no O1 para n resolver pendencia
+                        codigoObjetoO1.push_back(previousHead);
+
+                        // armazena offset e link para a lista ligada em maps separados
+                        pendingOffsets[loc] = offset;
+
                         symtab[base].pendingListHead = loc;
                     }
                 }
 
-                programCounter += opInfo.size;
+                locCounter += opInfo.size;
             }
             else if (mainToken.type == TokenType::DIRECTIVE)
             {
@@ -198,8 +230,10 @@ void Assembler::first_pass(const string &input_filename)
                     {
                         throw runtime_error("Valor de CONST não é um número válido.");
                     }
-                    codigoObjeto.push_back(stoi(param));
-                    programCounter += 1;
+                    int constVal = stoi(param);
+                    codigoObjeto.push_back(constVal);
+                    codigoObjetoO1.push_back(constVal);
+                    locCounter += 1;
                 }
                 else if (mainToken.value == "SPACE")
                 {
@@ -226,8 +260,9 @@ void Assembler::first_pass(const string &input_filename)
                     for (int i = 0; i < numSpaces; i++)
                     {
                         codigoObjeto.push_back(0); // Inicializa espaços com zero
+                        codigoObjetoO1.push_back(0);
                     }
-                    programCounter += numSpaces;
+                    locCounter += numSpaces;
                 }
                 else
                 {
@@ -242,7 +277,6 @@ void Assembler::first_pass(const string &input_filename)
         }
         catch (const LexicalException &le)
         {
-            // Use the line number reported by the lexical exception if available
             int errLine = le.getLineNumber() > 0 ? le.getLineNumber() : lineNumber;
             errors.push_back({errLine, string("Léxico: ") + le.what()});
         }
@@ -250,6 +284,11 @@ void Assembler::first_pass(const string &input_filename)
         {
             errors.push_back({lineNumber, e.what()});
         }
+    }
+
+    if (!pendingDefinition.empty())
+    {
+        errors.push_back({lineNumber, "Rótulo '" + pendingDefinition + "' declarado sem instrução."});
     }
 
     for (const auto &pair : symtab)
@@ -270,10 +309,10 @@ void Assembler::generate_o1_file(const string &o1_filename)
     }
 
     printf("Gerando arquivo O1: %s\n", o1_filename.c_str());
-    for (size_t i = 0; i < codigoObjeto.size(); i++)
+    for (size_t i = 0; i < codigoObjetoO1.size(); i++)
     {
-        o1_file << codigoObjeto[i];
-        if (i < codigoObjeto.size() - 1)
+        o1_file << codigoObjetoO1[i];
+        if (i < codigoObjetoO1.size() - 1)
         {
             o1_file << " ";
         }
@@ -281,23 +320,22 @@ void Assembler::generate_o1_file(const string &o1_filename)
     o1_file.close();
 }
 
-void Assembler::resolvePendingReferences()
+void Assembler::generate_o2_file(const string &o2_filename)
 {
-    for (auto &pair : symtab)
+    ofstream o2_file(o2_filename);
+    if (!o2_file.is_open())
     {
-        SymbolItem &item = pair.second;
-        if (item.isDefined)
+        throw runtime_error("Erro ao abrir o arquivo de saída O2: " + o2_filename);
+    }
+
+    printf("Gerando arquivo O2 (resolvido): %s\n", o2_filename.c_str());
+    for (size_t i = 0; i < codigoObjeto.size(); i++)
+    {
+        o2_file << codigoObjeto[i];
+        if (i < codigoObjeto.size() - 1)
         {
-            int currentLoc = item.pendingListHead;
-            while (currentLoc != -1)
-            {
-                int encoded = codigoObjeto[currentLoc];
-                int next_plus = (encoded >> 16);
-                int nextLoc = next_plus - 1;
-                int offset = encoded & 0xFFFF;
-                codigoObjeto[currentLoc] = item.address + offset;
-                currentLoc = nextLoc;
-            }
+            o2_file << " ";
         }
-    }   
+    }
+    o2_file.close();
 }

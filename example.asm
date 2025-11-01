@@ -1,38 +1,52 @@
+; example.asm - comprehensive test cases for the assembler
+; Sections: valid code, macros, forward/back references, directives, errors
+
+; ---------- Inputs and simple ops ----------
 INPUT N1
 INPUT N2
 INPUT A
 LOAD N1
-ADD N2 + 3
+ADD N2 + 3       ; test LABEL + offset (with spaces)
+ADD N1+2         ; test LABEL+offset (no spaces)
 STORE N3
 OUTPUT N3
 STOP
+
+; ---------- Data directives ----------
 N1: SPACE
-N2: SPACE
+N2: SPACE 2
 N3: SPACE
 A:  SPACE 10
 
+; ---------- Macros (including nested) ----------
 SWAP: MACRO &A, &B
 COPY &B, &A
 COPY &A, &B
 ENDMACRO
 
-ALO: MACRO
-LOAD A
-ENDMACRO
-
-LOA: MACRO
-LOAD A
-SWAP N2, N1
-
-
+INC_A: MACRO
+	LOAD A
+	ADD 1
 ENDMACRO
 
 SWAP N1, N2
-LOA
+INC_A
 
-ROTULO:
-ADD 5
-ADD 2
+; ---------- Valid forward reference (should create pendência then resolve) ----------
+JMP future_label
 
-JMPZ ROTULO
+; label alone on a line and instruction on next (pendingDefinition test)
+alone_label:
+	ADD N1
+
+; define future label (resolves previous JMP)
+future_label: STOP
+
+; Test immediate numeric operand (allowed by assembler)
+ADD 1
+
+
+; End of testszzz
+
+
 
